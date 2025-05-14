@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use actix_web::{HttpResponse, Responder};
 use rand::seq::SliceRandom;
@@ -56,6 +56,7 @@ async fn set_candidates(
 struct ElectionResults {
     people: Vec<String>,
     votes: Vec<Vec<String>>,
+    winners: BTreeSet<String>,
 }
 
 impl ElectionResults {
@@ -63,7 +64,41 @@ impl ElectionResults {
         let ballots = data.ballots.replace(BTreeMap::default()).unwrap();
         let (people, mut votes): (Vec<_>, Vec<_>) = ballots.into_iter().unzip();
         votes.shuffle(&mut rand::rng());
-        Self { people, votes }
+
+        let candidates: BTreeSet<&String> = votes.iter().flatten().collect();
+        let (candidates_to_num, num_to_candidate): (
+            BTreeMap<&String, u16>,
+            BTreeMap<u16, &String>,
+        ) = candidates
+            .into_iter()
+            .enumerate()
+            .map(|(n, s)| {
+                let n = u16::try_from(n).unwrap();
+                ((s, n), (n, s))
+            })
+            .unzip();
+        let winners = ranked_pairs::tally(
+            &votes
+                .iter()
+                .map(|ballot| {
+                    ballot
+                        .iter()
+                        .map(|v| *candidates_to_num.get(v).unwrap())
+                        .collect()
+                })
+                .collect::<Vec<Vec<u16>>>(),
+            candidates_to_num.len().try_into().unwrap(),
+        )
+        .unwrap()
+        .into_iter()
+        .map(|w| num_to_candidate.get(&w).unwrap().to_string())
+        .collect();
+
+        Self {
+            people,
+            votes,
+            winners,
+        }
     }
 }
 

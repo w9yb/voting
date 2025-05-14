@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::de::Error as _;
 
@@ -52,6 +52,14 @@ impl<'de> serde::Deserialize<'de> for Ballot {
                         }
                     }
                 }
+
+                let mut voted_candidates = BTreeSet::new();
+                for v in ranking.values() {
+                    if !voted_candidates.insert(v) {
+                        return Err(A::Error::custom("multiple votes for same candidate"));
+                    }
+                }
+
                 Ok(Ballot {
                     callsign: callsign.ok_or_else(|| A::Error::missing_field("callsign"))?,
                     ranking: ranking.into_values().collect(),

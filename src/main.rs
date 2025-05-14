@@ -6,7 +6,7 @@ mod data;
 mod static_page;
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{Mutex, RwLock},
 };
 
@@ -79,7 +79,7 @@ async fn main() -> std::io::Result<()> {
 struct ApplicationState {
     key: String,
     templates: tera::Tera,
-    candidates: RwLock<Vec<String>>,
+    candidates: RwLock<BTreeSet<String>>,
     ballots: Mutex<BTreeMap<String, Vec<String>>>,
 }
 
