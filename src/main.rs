@@ -1,12 +1,15 @@
 #![feature(map_try_insert, lock_value_accessors)]
 
 mod admin;
+mod ballot;
 mod data;
 mod static_page;
 
-use std::{collections::BTreeMap, sync::Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Mutex, RwLock},
+};
 
-use actix_web::{HttpResponse, Responder};
 use rand::RngCore as _;
 
 #[actix_web::main]
@@ -48,26 +51,24 @@ async fn main() -> std::io::Result<()> {
         .collect();
 
     println!("Key: {}", key);
-    let app_data = actix_web::web::Data::new(ElectionData::new(key));
+    let app_data = actix_web::web::Data::new(ApplicationState::new(key));
 
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .app_data(app_data.clone())
             .route(
-                "/",
-                actix_web::web::get().to(static_page::Static(include_str!("../assets/index.html"))),
-            )
-            .route(
                 "/done",
-                actix_web::web::get().to(static_page::Static(include_str!("../assets/done.html"))),
+                actix_web::web::get().to(static_page::Static("done.html")),
             )
             .route(
                 "/error",
-                actix_web::web::get().to(static_page::Static(include_str!("../assets/error.html"))),
+                actix_web::web::get().to(static_page::Static("error.html")),
             )
-            .service(ballot_submission)
+            .service(ballot::ballot_form)
+            .service(ballot::ballot_submission)
             .service(admin::check_ballots)
             .service(admin::get_results)
+            .service(admin::set_candidates)
     })
     .bind(("127.0.0.1", 8080))?
     .bind_rustls_0_23(("127.0.0.1", 4443), tls_config)?
@@ -75,36 +76,20 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-struct ElectionData {
+struct ApplicationState {
     key: String,
+    templates: tera::Tera,
+    candidates: RwLock<Vec<String>>,
     ballots: Mutex<BTreeMap<String, Vec<String>>>,
 }
 
-impl ElectionData {
+impl ApplicationState {
     fn new(key: String) -> Self {
         Self {
             key,
+            templates: tera::Tera::new("assets/**/*").unwrap(),
+            candidates: RwLock::default(),
             ballots: Mutex::default(),
         }
-    }
-}
-
-#[actix_web::post("/ballot")]
-async fn ballot_submission(
-    data: actix_web::web::Data<ElectionData>,
-    ballot: actix_web::web::Form<data::Ballot>,
-) -> impl Responder {
-    match data
-        .ballots
-        .lock()
-        .unwrap()
-        .try_insert(ballot.0.callsign, ballot.0.ranking)
-    {
-        Ok(_) => HttpResponse::SeeOther()
-            .insert_header(("Location", "/done"))
-            .finish(),
-        Err(_) => HttpResponse::SeeOther()
-            .insert_header(("Location", "/error"))
-            .finish(),
     }
 }

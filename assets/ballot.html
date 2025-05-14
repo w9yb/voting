@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: monospace;
+      }
+
+      input {
+        font-family: monospace;
+      }
+
+      table {
+        border-collapse: collapse;
+        margin: 8px 0px;
+      }
+
+      th,
+      td {
+        border: 1px solid black;
+        padding: 8px 10px;
+        text-align: center;
+      }
+    </style>
+    <title>W9YB Ballot</title>
+  </head>
+
+  <body>
+    <h2>Ballot</h2>
+    <form action="/ballot" method="post">
+      <label> Your callsign: <input name="callsign" /> </label> <br />
+
+      <table>
+        <tr>
+          <td>Person</td>
+          {% for candidate in candidates %}
+          <td> Rank {{loop.index}} </td>
+          {% endfor %}
+        </tr>
+        {% for candidate in candidates %}
+        <tr>
+          <td>{{candidate}}</td>
+          {% for candidate in candidates %}
+          <td> <input type="radio" name="rank{{loop.index}}" value="{{candidate}}" /> </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </table>
+
+      <button>Submit</button>
+    </form>
+  </body>
+</html>

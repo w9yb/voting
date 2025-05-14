@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use actix_web::{HttpResponse, Responder};
 use rand::seq::SliceRandom;
 
-use crate::ElectionData;
+use crate::ApplicationState;
 
 #[derive(serde::Deserialize)]
 struct Key {
@@ -12,7 +12,7 @@ struct Key {
 
 #[actix_web::get("/admin/check_ballots")]
 async fn check_ballots(
-    data: actix_web::web::Data<ElectionData>,
+    data: actix_web::web::Data<ApplicationState>,
     authentication: actix_web::web::Query<Key>,
 ) -> impl Responder {
     if authentication.key == data.key {
@@ -25,6 +25,33 @@ async fn check_ballots(
     }
 }
 
+#[derive(serde::Deserialize)]
+struct AuthenticatedCandidates {
+    key: String,
+    candidates: String,
+}
+
+#[actix_web::get("/admin/set_candidates")]
+async fn set_candidates(
+    data: actix_web::web::Data<ApplicationState>,
+    new_candidates: actix_web::web::Query<AuthenticatedCandidates>,
+) -> impl Responder {
+    if new_candidates.key == data.key {
+        let mut candidates = data.candidates.write().unwrap();
+        let mut ballots = data.ballots.lock().unwrap();
+        *candidates = new_candidates
+            .0
+            .candidates
+            .split(',')
+            .map(|s| s.to_owned())
+            .collect();
+        ballots.clear();
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::Unauthorized().finish()
+    }
+}
+
 #[derive(serde::Serialize)]
 struct ElectionResults {
     people: Vec<String>,
@@ -32,7 +59,7 @@ struct ElectionResults {
 }
 
 impl ElectionResults {
-    pub fn from_election_data(data: &ElectionData) -> Self {
+    pub fn from_election_data(data: &ApplicationState) -> Self {
         let ballots = data.ballots.replace(BTreeMap::default()).unwrap();
         let (people, mut votes): (Vec<_>, Vec<_>) = ballots.into_iter().unzip();
         votes.shuffle(&mut rand::rng());
@@ -42,7 +69,7 @@ impl ElectionResults {
 
 #[actix_web::get("/admin/get_results")]
 async fn get_results(
-    data: actix_web::web::Data<ElectionData>,
+    data: actix_web::web::Data<ApplicationState>,
     authentication: actix_web::web::Query<Key>,
 ) -> impl Responder {
     if authentication.key == data.key {
