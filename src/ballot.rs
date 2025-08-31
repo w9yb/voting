@@ -19,8 +19,8 @@ async fn ballot_submission(
         Ok(()) => HttpResponse::SeeOther()
             .insert_header(("Location", "/done"))
             .finish(),
-        Err(()) => HttpResponse::SeeOther()
-            .insert_header(("Location", "/error"))
+        Err(e) => HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/error?error={e}")))
             .finish(),
     }
 }

@@ -1,5 +1,3 @@
-#![feature(map_try_insert, lock_value_accessors)]
-
 mod admin;
 mod ballot;
 mod data;
@@ -71,10 +69,7 @@ async fn main() -> std::io::Result<()> {
                 "/done",
                 actix_web::web::get().to(static_page::Static("done.html")),
             )
-            .route(
-                "/error",
-                actix_web::web::get().to(static_page::Static("error.html")),
-            )
+            .service(error_page)
             .service(ballot::ballot_form)
             .service(ballot::ballot_submission)
             .service(admin::check_ballots)
@@ -85,4 +80,26 @@ async fn main() -> std::io::Result<()> {
     .bind_rustls_0_23(("0.0.0.0", 4443), tls_config)?
     .run()
     .await
+}
+
+#[derive(serde::Deserialize)]
+struct ErrorPageParams {
+    error: Option<String>,
+}
+
+#[actix_web::get("/error")]
+pub async fn error_page(
+    data: actix_web::web::Data<state::ApplicationState>,
+    params: actix_web::web::Query<ErrorPageParams>,
+) -> impl actix_web::Responder {
+    let mut context = tera::Context::new();
+    context.insert(
+        "error",
+        if let Some(ref e) = params.error {
+            e.as_str()
+        } else {
+            "No additional information."
+        },
+    );
+    actix_web::HttpResponse::Ok().body(data.templates().render("error.html", &context).unwrap())
 }

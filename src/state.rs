@@ -38,17 +38,22 @@ impl ApplicationState {
         self.ballots.lock().await.keys().cloned().collect()
     }
 
-    pub async fn add_ballot(&self, callsign: String, ranking: Vec<String>) -> Result<(), ()> {
+    pub async fn add_ballot(
+        &self,
+        callsign: String,
+        ranking: Vec<String>,
+    ) -> Result<(), &'static str> {
         let candidates = self.candidates.read().await;
         if !ranking.iter().all(|c| candidates.contains(c)) {
-            return Err(());
+            return Err("invalid_candidate");
         }
-        self.ballots
-            .lock()
-            .await
-            .try_insert(callsign, ranking)
-            .map(|_| ())
-            .map_err(|_| ())
+        match self.ballots.lock().await.entry(callsign) {
+            std::collections::btree_map::Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(ranking);
+                Ok(())
+            }
+            std::collections::btree_map::Entry::Occupied(_) => Err("duplicate_ballot"),
+        }
     }
 
     pub async fn set_candidates(&self, new_candidates: BTreeSet<String>) {
