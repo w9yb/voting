@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use actix_web::{HttpResponse, Responder};
 use rand::seq::SliceRandom;
 
-use crate::ApplicationState;
+use crate::state::ApplicationState;
 
 #[derive(serde::Deserialize)]
 struct Key {
@@ -15,11 +15,20 @@ async fn check_ballots(
     data: actix_web::web::Data<ApplicationState>,
     authentication: actix_web::web::Query<Key>,
 ) -> impl Responder {
-    if authentication.key == data.key {
-        HttpResponse::Ok().body(format!(
-            "{:?}\n",
-            data.ballots.lock().unwrap().keys().collect::<Vec<_>>()
-        ))
+    if data.check_key(&authentication.key) {
+        HttpResponse::Ok().json(data.list_ballots().await)
+    } else {
+        HttpResponse::Unauthorized().finish()
+    }
+}
+
+#[actix_web::get("/admin/check_candidates")]
+async fn check_candidates(
+    data: actix_web::web::Data<ApplicationState>,
+    authentication: actix_web::web::Query<Key>,
+) -> impl Responder {
+    if data.check_key(&authentication.key) {
+        HttpResponse::Ok().json(data.list_candidates().await)
     } else {
         HttpResponse::Unauthorized().finish()
     }
@@ -36,16 +45,16 @@ async fn set_candidates(
     data: actix_web::web::Data<ApplicationState>,
     new_candidates: actix_web::web::Query<AuthenticatedCandidates>,
 ) -> impl Responder {
-    if new_candidates.key == data.key {
-        let mut candidates = data.candidates.write().unwrap();
-        let mut ballots = data.ballots.lock().unwrap();
-        *candidates = new_candidates
-            .0
-            .candidates
-            .split(',')
-            .map(|s| s.to_owned())
-            .collect();
-        ballots.clear();
+    if data.check_key(&new_candidates.key) {
+        data.set_candidates(
+            new_candidates
+                .0
+                .candidates
+                .split(',')
+                .map(|s| s.to_owned())
+                .collect(),
+        )
+        .await;
         HttpResponse::Ok().finish()
     } else {
         HttpResponse::Unauthorized().finish()
@@ -60,12 +69,20 @@ struct ElectionResults {
 }
 
 impl ElectionResults {
-    pub fn from_election_data(data: &ApplicationState) -> Self {
-        let ballots = data.ballots.replace(BTreeMap::default()).unwrap();
+    pub async fn from_election_data(data: &ApplicationState) -> Self {
+        let (all_candidates, ballots) = data.take_data().await;
+
         let (people, mut votes): (Vec<_>, Vec<_>) = ballots.into_iter().unzip();
         votes.shuffle(&mut rand::rng());
 
         let candidates: BTreeSet<&String> = votes.iter().flatten().collect();
+
+        // the candidates should be a subset of all available candidates
+        assert_eq!(
+            candidates.iter().find(|c| !all_candidates.contains(**c)),
+            None
+        );
+
         let (candidates_to_num, num_to_candidate): (
             BTreeMap<&String, u16>,
             BTreeMap<u16, &String>,
@@ -107,8 +124,8 @@ async fn get_results(
     data: actix_web::web::Data<ApplicationState>,
     authentication: actix_web::web::Query<Key>,
 ) -> impl Responder {
-    if authentication.key == data.key {
-        let results = ElectionResults::from_election_data(&data);
+    if data.check_key(&authentication.key) {
+        let results = ElectionResults::from_election_data(&data).await;
         HttpResponse::Ok().json(results)
     } else {
         HttpResponse::Unauthorized().finish()

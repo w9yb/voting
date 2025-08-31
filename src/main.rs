@@ -3,14 +3,12 @@
 mod admin;
 mod ballot;
 mod data;
+mod state;
 mod static_page;
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::{Mutex, RwLock},
-};
-
+use copypasta::ClipboardProvider as _;
 use rand::RngCore as _;
+use sha2::Digest as _;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -18,24 +16,31 @@ async fn main() -> std::io::Result<()> {
         .install_default()
         .unwrap();
 
-    let certs_file = std::fs::read("cert.pem").unwrap();
-    let key_file = std::fs::read("key.pem").unwrap();
+    let mut certificate_params = rcgen::CertificateParams::default();
+    certificate_params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "w9yb-voting");
 
-    let tls_certs = rustls_pemfile::certs(&mut certs_file.as_slice())
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    let tls_key = rustls_pemfile::pkcs8_private_keys(&mut key_file.as_slice())
-        .next()
-        .unwrap()
-        .unwrap();
+    let signing_key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ECDSA_P521_SHA512)
+        .expect("creating a signing key to succeed");
+    let certificate = certificate_params.self_signed(&signing_key).unwrap();
+
+    print!("Certificate fingerprint (SHA-256): ");
+    for b in sha2::Sha256::digest(certificate.der()) {
+        print!("{b:02X}");
+    }
+    println!();
 
     let tls_config = rustls::ServerConfig::builder()
         .with_no_client_auth()
-        .with_single_cert(tls_certs, rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key))
+        .with_single_cert(
+            vec![certificate.der().to_owned()],
+            rustls::pki_types::PrivateKeyDer::Pkcs8(signing_key.serialize_der().into()),
+        )
         .unwrap();
 
     let mut rng = rand::rng();
-    let key: String = (0..4)
+    let key: String = (0..9)
         .flat_map(|_| {
             let n = rng.next_u32();
             [
@@ -50,8 +55,14 @@ async fn main() -> std::io::Result<()> {
         .map(|c| char::from_digit(c.into(), 32).unwrap())
         .collect();
 
-    println!("Key: {}", key);
-    let app_data = actix_web::web::Data::new(ApplicationState::new(key));
+    let mut clipboard_ctx =
+        copypasta::ClipboardContext::new().expect("getting clipboard context to succeed");
+    clipboard_ctx
+        .set_contents(key.clone())
+        .expect("setting clipboard contents to succeed");
+    println!("Key copied to clipboard");
+
+    let app_data = actix_web::web::Data::new(state::ApplicationState::new(key));
 
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
@@ -67,29 +78,11 @@ async fn main() -> std::io::Result<()> {
             .service(ballot::ballot_form)
             .service(ballot::ballot_submission)
             .service(admin::check_ballots)
+            .service(admin::check_candidates)
             .service(admin::get_results)
             .service(admin::set_candidates)
     })
-    .bind(("127.0.0.1", 8080))?
-    .bind_rustls_0_23(("127.0.0.1", 4443), tls_config)?
+    .bind_rustls_0_23(("0.0.0.0", 4443), tls_config)?
     .run()
     .await
-}
-
-struct ApplicationState {
-    key: String,
-    templates: tera::Tera,
-    candidates: RwLock<BTreeSet<String>>,
-    ballots: Mutex<BTreeMap<String, Vec<String>>>,
-}
-
-impl ApplicationState {
-    fn new(key: String) -> Self {
-        Self {
-            key,
-            templates: tera::Tera::new("assets/**/*").unwrap(),
-            candidates: RwLock::default(),
-            ballots: Mutex::default(),
-        }
-    }
 }

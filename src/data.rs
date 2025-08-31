@@ -57,7 +57,7 @@ impl<'de> serde::Deserialize<'de> for Ballot {
 
                 let mut voted_candidates = BTreeSet::new();
                 for v in ranking.values() {
-                    if !voted_candidates.insert(v) {
+                    if !voted_candidates.insert(v.as_str()) {
                         return Err(A::Error::custom("multiple votes for same candidate"));
                     }
                 }
