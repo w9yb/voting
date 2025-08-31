@@ -101,9 +101,9 @@ impl ElectionResults {
                     ballot
                         .iter()
                         .map(|v| *candidates_to_num.get(v.as_str()).unwrap())
-                        .collect()
+                        .collect::<Vec<_>>()
                 })
-                .collect::<Vec<Vec<u16>>>(),
+                .collect::<Vec<_>>(),
             candidates_to_num.len().try_into().unwrap(),
         )
         .unwrap();

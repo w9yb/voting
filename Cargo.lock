@@ -1753,8 +1753,9 @@ checksum = "f93e7e49bb0bf967717f7bd674458b3d6b0c5f48ec7e3038166026a69fc22223"
 
 [[package]]
 name = "ranked-pairs"
-version = "0.0.2-alpha"
-source = "git+https://github.com/rsammelson/ranked-pairs-rs.git#f0a933c4cc718c20157b3be10edf913ed8700857"
+version = "0.0.2-beta"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dca29aecdb4e67d24346cec2f5343d9cfdf4e1cca421a6bddf1ae80001477a54"
 dependencies = [
  "itertools 0.14.0",
  "rangemap",

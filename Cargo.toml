@@ -7,7 +7,7 @@ edition = "2024"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 copypasta = "0.10.2"
 rand = "0.9.1"
-ranked-pairs = { git = "https://github.com/rsammelson/ranked-pairs-rs.git" }
+ranked-pairs = "0.0.2-beta"
 rcgen = { version = "0.14.3", default-features = false, features = ["aws_lc_rs", "fips"] }
 rustls = { version = "0.23", features = ["fips"] }
 serde = { version = "1.0", features = ["derive"] }
