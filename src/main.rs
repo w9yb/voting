@@ -14,10 +14,28 @@ async fn main() -> std::io::Result<()> {
         .install_default()
         .unwrap();
 
+    let port: u16 = std::env::args()
+        .nth(1)
+        .expect("port number to be provided as argument")
+        .parse()
+        .expect("port number to be valid");
+
     let mut certificate_params = rcgen::CertificateParams::default();
+    certificate_params.not_before = std::time::SystemTime::now().into();
+    certificate_params.not_after =
+        certificate_params.not_before + std::time::Duration::new(2 * 60 * 60, 0);
     certificate_params
         .distinguished_name
-        .push(rcgen::DnType::CommonName, "w9yb-voting");
+        .push(rcgen::DnType::CountryName, "US");
+    certificate_params
+        .distinguished_name
+        .push(rcgen::DnType::OrganizationName, "W9YB");
+    certificate_params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "Voting Software");
+    certificate_params
+        .extended_key_usages
+        .push(rcgen::ExtendedKeyUsagePurpose::ServerAuth);
 
     let signing_key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ECDSA_P521_SHA512)
         .expect("creating a signing key to succeed");
@@ -62,6 +80,8 @@ async fn main() -> std::io::Result<()> {
 
     let app_data = actix_web::web::Data::new(state::ApplicationState::new(key));
 
+    println!("Binding to port {port}");
+
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .app_data(app_data.clone())
@@ -77,7 +97,7 @@ async fn main() -> std::io::Result<()> {
             .service(admin::get_results)
             .service(admin::set_candidates)
     })
-    .bind_rustls_0_23(("0.0.0.0", 4443), tls_config)?
+    .bind_rustls_0_23(("0.0.0.0", port), tls_config)?
     .run()
     .await
 }
