@@ -712,12 +712,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gen_ops"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "304de19db7028420975a296ab0fcbbc8e69438c4ed254a1e41e2a7f37d5f0e0a"
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1200,15 +1194,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
-name = "num-integer"
-version = "0.1.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1489,25 +1474,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "range-set-blaze"
-version = "0.1.16"
+name = "rangemap"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8421b5d459262eabbe49048d362897ff3e3830b44eac6cfe341d6acb2f0f13d2"
-dependencies = [
- "gen_ops",
- "itertools 0.12.1",
- "num-integer",
- "num-traits",
-]
+checksum = "f93e7e49bb0bf967717f7bd674458b3d6b0c5f48ec7e3038166026a69fc22223"
 
 [[package]]
 name = "ranked-pairs"
-version = "0.0.1"
+version = "0.0.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e19ef63261c862275c0360e63bd53f332c93006d7b0bfa9bb2ff2a843e94b4c"
+checksum = "924dc609d6aa1df431f076e12cab5755f1fba9ce7f02adfa643b24b1a5235285"
 dependencies = [
  "itertools 0.14.0",
- "range-set-blaze",
+ "rangemap",
  "thiserror",
 ]
 
