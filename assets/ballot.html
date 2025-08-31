@@ -40,11 +40,17 @@
         {% for candidate in candidates %}
         <tr>
           <td>{{candidate}}</td>
-          {% for candidate in candidates %}
+          {% for c in candidates %}
           <td> <input type="radio" name="rank{{loop.index}}" value="{{candidate}}" /> </td>
           {% endfor %}
         </tr>
         {% endfor %}
+        <tr>
+          <td>None</td>
+          {% for c in candidates %}
+          <td> <input type="radio" name="rank{{loop.index}}" value="none" /> </td>
+          {% endfor %}
+        </tr>
       </table>
 
       <button>Submit</button>

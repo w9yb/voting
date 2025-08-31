@@ -29,9 +29,11 @@ impl<'de> serde::Deserialize<'de> for Ballot {
                 let mut callsign = None;
                 let mut ranking: BTreeMap<u8, _> = BTreeMap::new();
                 while let Some((key, mut value)) = map.next_entry::<String, String>()? {
-                    if !value.is_empty() {
-                        value.make_ascii_uppercase();
+                    value.make_ascii_uppercase();
 
+                    if value.is_empty() || value == "NONE" {
+                        // ignore this entry, the user selected none or didn't enter a value for it
+                    } else {
                         if !value.is_ascii()
                             || value.len() < 4
                             || value.len() > 6
