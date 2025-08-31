@@ -1,9 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use actix_web::{HttpResponse, Responder};
-use rand::seq::SliceRandom;
 
-use crate::state::ApplicationState;
+use crate::state::{self, ApplicationState};
 
 #[derive(serde::Deserialize)]
 struct Key {
@@ -63,57 +62,75 @@ async fn set_candidates(
 
 #[derive(serde::Serialize)]
 struct ElectionResults {
-    people: Vec<String>,
-    votes: Vec<Vec<String>>,
+    data: state::Data,
+    pairwise_data: Vec<BTreeSet<(String, String)>>,
     winners: BTreeSet<String>,
 }
 
 impl ElectionResults {
     pub async fn from_election_data(data: &ApplicationState) -> Self {
-        let (all_candidates, ballots) = data.take_data().await;
+        let data = data.take_data().await;
 
-        let (people, mut votes): (Vec<_>, Vec<_>) = ballots.into_iter().unzip();
-        votes.shuffle(&mut rand::rng());
-
-        let candidates: BTreeSet<&String> = votes.iter().flatten().collect();
+        let candidates: BTreeSet<&str> = data
+            .ballots
+            .iter()
+            .flat_map(|b| b.iter().map(String::as_str))
+            .collect();
 
         // the candidates should be a subset of all available candidates
         assert_eq!(
-            candidates.iter().find(|c| !all_candidates.contains(**c)),
+            candidates.iter().find(|c| !data.candidates.contains(**c)),
             None
         );
 
-        let (candidates_to_num, num_to_candidate): (
-            BTreeMap<&String, u16>,
-            BTreeMap<u16, &String>,
-        ) = candidates
-            .into_iter()
-            .enumerate()
-            .map(|(n, s)| {
-                let n = u16::try_from(n).unwrap();
-                ((s, n), (n, s))
-            })
-            .unzip();
-        let winners = ranked_pairs::tally(
-            &votes
+        let (candidates_to_num, num_to_candidate): (BTreeMap<&str, u16>, BTreeMap<u16, &str>) =
+            candidates
+                .into_iter()
+                .enumerate()
+                .map(|(n, s)| {
+                    let n = u16::try_from(n).unwrap();
+                    ((s, n), (n, s))
+                })
+                .unzip();
+
+        let tabulated_data = ranked_pairs::TabulatedData::from_ballots(
+            &data
+                .ballots
                 .iter()
                 .map(|ballot| {
                     ballot
                         .iter()
-                        .map(|v| *candidates_to_num.get(v).unwrap())
+                        .map(|v| *candidates_to_num.get(v.as_str()).unwrap())
                         .collect()
                 })
                 .collect::<Vec<Vec<u16>>>(),
             candidates_to_num.len().try_into().unwrap(),
         )
-        .unwrap()
-        .into_iter()
-        .map(|w| num_to_candidate.get(&w).unwrap().to_string())
-        .collect();
+        .unwrap();
+
+        let pairwise_data = tabulated_data
+            .pairwise_results()
+            .map(|s| {
+                s.iter()
+                    .map(|(winner, loser)| {
+                        (
+                            (*num_to_candidate.get(winner).unwrap()).to_owned(),
+                            (*num_to_candidate.get(loser).unwrap()).to_owned(),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+
+        let winners = tabulated_data
+            .tally()
+            .into_iter()
+            .map(|w| num_to_candidate.get(&w).unwrap().to_string())
+            .collect();
 
         Self {
-            people,
-            votes,
+            data,
+            pairwise_data,
             winners,
         }
     }

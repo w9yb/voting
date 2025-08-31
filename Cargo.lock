@@ -1754,7 +1754,7 @@ checksum = "f93e7e49bb0bf967717f7bd674458b3d6b0c5f48ec7e3038166026a69fc22223"
 [[package]]
 name = "ranked-pairs"
 version = "0.0.2-alpha"
-source = "git+https://github.com/rsammelson/ranked-pairs-rs.git#ebaa076bacb5986538e890aafaf80d43579555f2"
+source = "git+https://github.com/rsammelson/ranked-pairs-rs.git#f0a933c4cc718c20157b3be10edf913ed8700857"
 dependencies = [
  "itertools 0.14.0",
  "rangemap",

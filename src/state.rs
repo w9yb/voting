@@ -1,15 +1,18 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::DerefMut as _,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
-use tokio::sync::{Mutex, RwLock};
+use rand::seq::SliceRandom as _;
+use tokio::sync::Mutex;
 
 pub struct ApplicationState {
     key: String,
     templates: tera::Tera,
-    candidates: RwLock<BTreeSet<String>>,
-    ballots: Mutex<BTreeMap<String, Vec<String>>>,
+    synchronized: Mutex<SynchronizedState>,
+}
+
+#[derive(Default)]
+struct SynchronizedState {
+    candidates: BTreeSet<String>,
+    ballots: BTreeMap<String, Vec<String>>,
 }
 
 impl ApplicationState {
@@ -17,8 +20,7 @@ impl ApplicationState {
         Self {
             key,
             templates: tera::Tera::new("assets/**/*").unwrap(),
-            candidates: RwLock::default(),
-            ballots: Mutex::default(),
+            synchronized: Default::default(),
         }
     }
 
@@ -31,11 +33,17 @@ impl ApplicationState {
     }
 
     pub async fn list_candidates(&self) -> BTreeSet<String> {
-        self.candidates.read().await.clone()
+        self.synchronized.lock().await.candidates.clone()
     }
 
     pub async fn list_ballots(&self) -> BTreeSet<String> {
-        self.ballots.lock().await.keys().cloned().collect()
+        self.synchronized
+            .lock()
+            .await
+            .ballots
+            .keys()
+            .cloned()
+            .collect()
     }
 
     pub async fn add_ballot(
@@ -43,11 +51,11 @@ impl ApplicationState {
         callsign: String,
         ranking: Vec<String>,
     ) -> Result<(), &'static str> {
-        let candidates = self.candidates.read().await;
-        if !ranking.iter().all(|c| candidates.contains(c)) {
+        let mut state = self.synchronized.lock().await;
+        if !ranking.iter().all(|c| state.candidates.contains(c)) {
             return Err("invalid_candidate");
         }
-        match self.ballots.lock().await.entry(callsign) {
+        match state.ballots.entry(callsign) {
             std::collections::btree_map::Entry::Vacant(vacant_entry) => {
                 vacant_entry.insert(ranking);
                 Ok(())
@@ -57,18 +65,33 @@ impl ApplicationState {
     }
 
     pub async fn set_candidates(&self, new_candidates: BTreeSet<String>) {
-        let mut candidates = self.candidates.write().await;
-        let mut ballots = self.ballots.lock().await;
-        *candidates = new_candidates;
-        ballots.clear();
+        let mut state = self.synchronized.lock().await;
+        state.candidates = new_candidates;
+        state.ballots.clear();
     }
 
-    pub async fn take_data(&self) -> (BTreeSet<String>, BTreeMap<String, Vec<String>>) {
-        let mut candidates = self.candidates.write().await;
-        let mut ballots = self.ballots.lock().await;
-        (
-            std::mem::take(candidates.deref_mut()),
-            std::mem::take(ballots.deref_mut()),
-        )
+    pub async fn take_data(&self) -> Data {
+        let mut state = self.synchronized.lock().await;
+        let candidates = std::mem::take(&mut state.candidates);
+        let ballots = std::mem::take(&mut state.ballots);
+        drop(state);
+
+        let (people, mut ballots): (_, Vec<_>) = ballots.into_iter().unzip();
+
+        // prevent ballots from being in the same order as people
+        ballots.shuffle(&mut rand::rng());
+
+        Data {
+            candidates,
+            people,
+            ballots,
+        }
     }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct Data {
+    pub candidates: BTreeSet<String>,
+    pub people: Vec<String>,
+    pub ballots: Vec<Vec<String>>,
 }
