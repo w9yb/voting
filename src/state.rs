@@ -100,7 +100,7 @@ pub struct CandidateList {
 
 impl CandidateList {
     pub fn contains(&self, s: &str) -> bool {
-        if self.allow_leave_empty && s == "LeaveEmpty" {
+        if self.allow_leave_empty && s == "LEAVEEMPTY" {
             true
         } else {
             self.candidates.contains(s)

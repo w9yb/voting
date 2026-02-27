@@ -81,7 +81,7 @@ impl ElectionResults {
 
         // the candidates should be a subset of all available candidates
         assert_eq!(
-            candidates.iter().find(|c| !data.candidates.contains(**c)),
+            candidates.iter().find(|c| !data.candidates.contains(c)),
             None
         );
 
