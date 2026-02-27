@@ -6,7 +6,18 @@ use crate::{data, state::ApplicationState};
 pub async fn ballot_form(data: actix_web::web::Data<ApplicationState>) -> impl Responder {
     let mut context = tera::Context::new();
     let candidates = data.list_candidates().await;
-    context.insert("candidates", &candidates);
+    context.insert(
+        "candidates",
+        &candidates
+            .candidates
+            .into_iter()
+            .chain(
+                candidates
+                    .allow_leave_empty
+                    .then(|| "LeaveEmpty".to_owned()),
+            )
+            .collect::<Vec<_>>(),
+    );
     HttpResponse::Ok().body(data.templates().render("ballot.html", &context).unwrap())
 }
 

@@ -37,6 +37,7 @@ async fn check_candidates(
 struct AuthenticatedCandidates {
     key: String,
     candidates: String,
+    allow_leave_empty: bool,
 }
 
 #[actix_web::get("/admin/set_candidates")]
@@ -52,6 +53,7 @@ async fn set_candidates(
                 .split(',')
                 .map(|s| s.to_owned())
                 .collect(),
+            new_candidates.allow_leave_empty,
         )
         .await;
         HttpResponse::Ok().finish()

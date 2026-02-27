@@ -11,7 +11,7 @@ pub struct ApplicationState {
 
 #[derive(Default)]
 struct SynchronizedState {
-    candidates: BTreeSet<String>,
+    candidates: CandidateList,
     ballots: BTreeMap<String, Vec<String>>,
 }
 
@@ -32,7 +32,7 @@ impl ApplicationState {
         key == self.key
     }
 
-    pub async fn list_candidates(&self) -> BTreeSet<String> {
+    pub async fn list_candidates(&self) -> CandidateList {
         self.synchronized.lock().await.candidates.clone()
     }
 
@@ -64,9 +64,12 @@ impl ApplicationState {
         }
     }
 
-    pub async fn set_candidates(&self, new_candidates: BTreeSet<String>) {
+    pub async fn set_candidates(&self, new_candidates: BTreeSet<String>, allow_leave_empty: bool) {
         let mut state = self.synchronized.lock().await;
-        state.candidates = new_candidates;
+        state.candidates = CandidateList {
+            candidates: new_candidates,
+            allow_leave_empty,
+        };
         state.ballots.clear();
     }
 
@@ -89,9 +92,25 @@ impl ApplicationState {
     }
 }
 
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct CandidateList {
+    pub candidates: BTreeSet<String>,
+    pub allow_leave_empty: bool,
+}
+
+impl CandidateList {
+    pub fn contains(&self, s: &str) -> bool {
+        if self.allow_leave_empty && s == "LeaveEmpty" {
+            true
+        } else {
+            self.candidates.contains(s)
+        }
+    }
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct Data {
-    pub candidates: BTreeSet<String>,
+    pub candidates: CandidateList,
     pub people: Vec<String>,
     pub ballots: Vec<Vec<String>>,
 }

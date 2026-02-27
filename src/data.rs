@@ -31,7 +31,7 @@ impl<'de> serde::Deserialize<'de> for Ballot {
                 while let Some((key, mut value)) = map.next_entry::<String, String>()? {
                     value.make_ascii_uppercase();
 
-                    if value.is_empty() || value == "NONE" {
+                    if value.is_empty() || value == "NONE" || value == "LeaveEmpty" {
                         // ignore this entry, the user selected none or didn't enter a value for it
                     } else {
                         if !value.is_ascii()
