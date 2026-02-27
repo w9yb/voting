@@ -10,9 +10,12 @@ use sha2::Digest as _;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .unwrap();
+    rustls::crypto::CryptoProvider {
+        kx_groups: vec![rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768],
+        ..rustls::crypto::aws_lc_rs::default_provider()
+    }
+    .install_default()
+    .unwrap();
 
     let port: u16 = std::env::args()
         .nth(1)

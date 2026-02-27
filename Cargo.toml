@@ -9,7 +9,7 @@ copypasta = "0.10.2"
 rand = "0.9.1"
 ranked-pairs = "0.0.2-beta"
 rcgen = { version = "0.14.3", default-features = false, features = ["aws_lc_rs", "fips"] }
-rustls = { version = "0.23", features = ["fips"] }
+rustls = { version = "0.23", default-features = false, features = ["fips"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10.9"
